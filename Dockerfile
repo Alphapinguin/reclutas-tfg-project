@@ -4,18 +4,25 @@ LABEL maintainer="juanantoniomtzfns@gmail.com"
 ENV DEBIAN_FRONTEND noninteractive
 # Update packages and distro, remove unnecessary dependencies
 RUN apt-get update -qq\
-    && apt-get upgrade -qq \
-    && apt-get dist-upgrade -qq \
-    && apt-get autoremove -qq \
-    && apt-get install build-essential -qq \
-    && apt-get install wget -qq
+    && apt-get -qq install \
+    wget \
+    nano \
+    unzip \
+    unixodbc \
+    unixodbc-dev \
+    python-dev \
+    python3-pip \
+    python3-mysqldb \
+    mariadb-server \
+    mariadb-client \
+    && apt-get autoremove -qq
 # Download and unzip asterisk's source code
-RUN wget -P /usr/local/src/ https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-17.4.0.tar.gz \
-    && cd /usr/local/src/ \
+WORKDIR /usr/local/src/
+RUN wget https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-17.4.0.tar.gz \
     && tar zxf asterisk-17.4.0.tar.gz
 # Install dependencies and check prerequisites
-RUN cd /usr/local/src/asterisk-17.4.0 \
-    && ./contrib/scripts/install_prereq install \
+WORKDIR /usr/local/src/asterisk-17.4.0
+RUN ./contrib/scripts/install_prereq install \
     && ./configure \
     --without-dahdi \
     --without-pri \
@@ -24,26 +31,46 @@ RUN cd /usr/local/src/asterisk-17.4.0 \
 RUN make menuselect.makeopts \
     && menuselect/menuselect \
     # Asterisk modules [Enabled]
-    --enable res_config_mysql \
-    --enable app_skel \
-    --enable app_ivrdemo \
-    --enable CORE-SOUNDS-ES-WAV
-    # Asterisk modules [Disabled]
-    # --disable CORE-SOUNDS-EN-GSM \
+    --enable res_config_mysql
 # Compile and install
 RUN make \
     && make install \
     && make samples \
     && make config \
-    && make install-logrotate \
-    && make distclean \
-    && rm -rf /usr/local/src/asterisk*
-
-# Donwload and unzip sound in spanish language
-RUN mkdir /var/lib/asterisk/sounds/es \
-    && cd $_ \
-    && wget -O core.zip https://www.asterisksounds.org/es-es/download/asterisk-sounds-core-es-ES-sln16.zip \
-    && wget -O extra.zip https://www.asterisksounds.org/es-es/download/asterisk-sounds-extra-es-ES-sln16.zip \
-    && unzip core.zip \
-    && unzip extra.zip \
-    && rm -rf *.zip
+    && make install-logrotate
+# Download and unzip sounds in spanish language
+RUN mkdir /var/lib/asterisk/sounds/es
+WORKDIR /var/lib/asterisk/sounds/es/
+RUN wget https://www.asterisksounds.org/es-es/download/asterisk-sounds-core-es-ES-sln16.zip \
+    && wget https://www.asterisksounds.org/es-es/download/asterisk-sounds-extra-es-ES-sln16.zip \
+    && unzip -o asterisk-sounds-core-es-ES-sln16.zip \
+    && unzip -o asterisk-sounds-extra-es-ES-sln16.zip 
+# Download and install library for MySQL connector
+WORKDIR /usr/local/src/
+RUN wget https://dev.mysql.com/get/Downloads/Connector-ODBC/8.0/mysql-connector-odbc-8.0.19-linux-ubuntu19.10-x86-64bit.tar.gz \
+    && tar xzf mysql-connector-odbc-8.0.19-linux-ubuntu19.10-x86-64bit.tar.gz \
+    && cp mysql-connector-odbc-8.0.19-linux-ubuntu19.10-x86-64bit/lib/libmyodbc8a.so /usr/lib/x86_64-linux-gnu/odbc/
+# MariaDB start and DB creation
+RUN /etc/init.d/mysql start \
+    && mysqladmin -u root create asterisk
+# Installing and using Alembic
+RUN pip install alembic
+WORKDIR /usr/local/src/asterisk-17.4.0/contrib/ast-db-manage/
+COPY path_contrib/* /usr/local/src/asterisk-17.4.0/contrib/ast-db-manage/
+RUN /etc/init.d/mysql start \
+    && alembic -c config.ini upgrade head
+# Open necessary ports for Asterisk
+EXPOSE 10000-20000/udp
+EXPOSE 5060/udp
+# Place custom configurations
+WORKDIR /
+COPY path_asterisk/* /etc/asterisk/
+COPY path_etc/* /etc/
+COPY path_usr/* /usr/local/src/
+# Remove unnecessary files
+RUN rm -rf /usr/local/src/asterisk-17.4.0/ \
+    /usr/local/src/*.tar.gz \
+    /var/lib/asterisk/sounds/es/*.zip
+# Run services
+RUN chmod +x /usr/local/src/start_services.sh
+ENTRYPOINT [ "/usr/local/src/start_services.sh" ]
