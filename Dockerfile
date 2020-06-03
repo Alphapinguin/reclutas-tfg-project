@@ -18,11 +18,11 @@ RUN apt-get update -qq\
     && apt-get autoremove -qq
 # Download and unzip asterisk's source code
 WORKDIR /usr/local/src/
-RUN wget https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-17.4.0.tar.gz \
-    && tar zxf asterisk-17.4.0.tar.gz
+RUN wget http://downloads.asterisk.org/pub/telephony/certified-asterisk/asterisk-certified-16.8-current.tar.gz \
+    && tar zxf asterisk-certified-16.8-current.tar.gz
 # Install dependencies and check prerequisites
-WORKDIR /usr/local/src/asterisk-17.4.0
-RUN ./contrib/scripts/install_prereq install \
+WORKDIR /usr/local/src/asterisk-certified-16.8-cert2
+RUN echo yes | ./contrib/scripts/install_prereq install \
     && ./configure \
     --without-dahdi \
     --without-pri \
@@ -55,8 +55,8 @@ RUN /etc/init.d/mysql start \
     && mysqladmin -u root create asterisk
 # Installing and using Alembic
 RUN pip install alembic
-WORKDIR /usr/local/src/asterisk-17.4.0/contrib/ast-db-manage/
-COPY path_contrib/* /usr/local/src/asterisk-17.4.0/contrib/ast-db-manage/
+WORKDIR /usr/local/src/asterisk-certified-16.8-cert2/contrib/ast-db-manage/
+COPY path_contrib/* /usr/local/src/asterisk-certified-16.8-cert2/contrib/ast-db-manage/
 RUN /etc/init.d/mysql start \
     && alembic -c config.ini upgrade head
 # Open necessary ports for Asterisk
@@ -68,7 +68,7 @@ COPY path_asterisk/* /etc/asterisk/
 COPY path_etc/* /etc/
 COPY path_usr/* /usr/local/src/
 # Remove unnecessary files
-RUN rm -rf /usr/local/src/asterisk-17.4.0/ \
+RUN rm -rf /usr/local/src/asterisk-certified-16.8-cert2/ \
     /usr/local/src/*.tar.gz \
     /var/lib/asterisk/sounds/es/*.zip
 # Run services
