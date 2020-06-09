@@ -60,8 +60,8 @@ COPY path_contrib/* /usr/local/src/asterisk-certified-16.8-cert2/contrib/ast-db-
 RUN /etc/init.d/mysql start \
     && alembic -c config.ini upgrade head
 # Open necessary ports for Asterisk
-EXPOSE 10000-20000/udp
 EXPOSE 5060/udp
+EXPOSE 10000-10003
 # Place custom configurations
 WORKDIR /
 COPY path_asterisk/* /etc/asterisk/
