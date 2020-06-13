@@ -15,6 +15,15 @@ RUN apt-get update -qq\
     python3-mysqldb \
     mariadb-server \
     mariadb-client \
+    apache2 \
+    php \
+    curl \
+    php-cli \
+    php-curl \
+    php-mbstring \
+    php-mysql \
+    git \ 
+    php-xml \
     && apt-get autoremove -qq
 # Download and unzip asterisk's source code
 WORKDIR /usr/local/src/
@@ -52,21 +61,35 @@ RUN wget https://dev.mysql.com/get/Downloads/Connector-ODBC/8.0/mysql-connector-
     && cp mysql-connector-odbc-8.0.19-linux-ubuntu19.10-x86-64bit/lib/libmyodbc8a.so /usr/lib/x86_64-linux-gnu/odbc/
 # MariaDB start and DB creation
 RUN /etc/init.d/mysql start \
-    && mysqladmin -u root create asterisk
+    && mysqladmin -u root password root \
+    && mysqladmin -u root -proot create asterisk
 # Installing and using Alembic
 RUN pip install alembic
 WORKDIR /usr/local/src/asterisk-certified-16.8-cert2/contrib/ast-db-manage/
 COPY path_contrib/* /usr/local/src/asterisk-certified-16.8-cert2/contrib/ast-db-manage/
 RUN /etc/init.d/mysql start \
     && alembic -c config.ini upgrade head
-# Open necessary ports for Asterisk
-EXPOSE 5060/udp
-EXPOSE 10000-10003
+# Open necessary ports for Asterisk and Apache
+EXPOSE 80
+EXPOSE 8000
+EXPOSE 5070/udp
+EXPOSE 10000-10003/udp
 # Place custom configurations
 WORKDIR /
 COPY path_asterisk/* /etc/asterisk/
 COPY path_etc/* /etc/
 COPY path_usr/* /usr/local/src/
+# Installing symfony dependencies
+WORKDIR /root
+RUN curl -sS https://getcomposer.org/installer | php \
+    && mv composer.phar /usr/local/bin/composer \
+    && chmod +x /usr/local/bin/composer
+WORKDIR /var/www/
+#RUN composer create-project symfony/website-skeleton:4.4.* reclutas
+RUN git clone https://github.com/Alphapinguin/reclutas_asterisk_web_manager.git
+WORKDIR /var/www/reclutas_asterisk_web_manager/
+RUN composer require --dev
+RUN composer req fresh/doctrine-enum-bundle='~6.6'
 # Remove unnecessary files
 RUN rm -rf /usr/local/src/asterisk-certified-16.8-cert2/ \
     /usr/local/src/*.tar.gz \
