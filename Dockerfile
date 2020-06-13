@@ -85,7 +85,6 @@ RUN curl -sS https://getcomposer.org/installer | php \
     && mv composer.phar /usr/local/bin/composer \
     && chmod +x /usr/local/bin/composer
 WORKDIR /var/www/
-#RUN composer create-project symfony/website-skeleton:4.4.* reclutas
 RUN git clone https://github.com/Alphapinguin/reclutas_asterisk_web_manager.git
 WORKDIR /var/www/reclutas_asterisk_web_manager/
 RUN composer require --dev
